@@ -10,9 +10,11 @@ import slick.dbio.Effect
 import slick.lifted.TableQuery
 import slick.sql.FixedSqlAction
 
+import scala.concurrent.duration._
 import java.sql.Timestamp
-import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.util.Random
+import scala.annotation.tailrec
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
+import scala.util.{Failure, Random, Success, Try}
 
 
 object ResultCode {
@@ -28,10 +30,21 @@ object DbStreamingApp extends App {
   implicit val system: ActorSystem = ActorSystem("reactive")
   implicit val ec: ExecutionContextExecutor = system.dispatcher
 
-  val publisher = Source.fromPublisher(db.stream(
-    tq.filter(_.status > 0).take(1)
-      .result
-      .transactionally))
+
+  @tailrec
+  def dbProduceData(): TasksRow = {
+    Try(Await.result(db.run(tq.filter(_.status === 0).take(1)
+      .result.headOption
+      .transactionally), 10.seconds)) match {
+      case Success(value) if value.isEmpty =>
+        println("No data. Thread sleep on 10 sec")
+        Thread.sleep(10000)
+        dbProduceData()
+      case Success(Some(value)) => value
+      case Failure(exception) =>
+        throw exception
+    }
+  }
 
   val statusChange: Flow[(TasksRow, Int), Future[Int], NotUsed] = Flow[(TasksRow, Int)].map { input =>
     def action(status: Int): FixedSqlAction[Int, NoStream, Effect.Write] = tq
@@ -53,7 +66,6 @@ object DbStreamingApp extends App {
   }
 
   val executor: Flow[TasksRow, (TasksRow, Int), NotUsed]= Flow[TasksRow].map {(_, Random.between(0, 2))}
-
-  val flow = publisher.via(executor).via(statusChange).to(Sink.ignore)
-
+  val stream = Source(LazyList.continually(dbProduceData())).via(executor).via(statusChange).runWith(Sink.ignore)
+  Await.result(stream, Duration.Inf)
 }
