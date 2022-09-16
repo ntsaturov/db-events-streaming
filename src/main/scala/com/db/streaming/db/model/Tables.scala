@@ -19,7 +19,18 @@ trait Tables {
                       action: String,
                       comment: String)
 
-  implicit val getTasksRowResult = GetResult(r => TasksRow(r.nextString(), r.nextTimestampOption(), r.nextInt(), r.nextTimestamp(), r.nextString(), r.nextString()))
+  implicit val getTasksRowResult = GetResult(r =>
+   {
+//     println(r.nextString())
+//     println(r.nextString())
+//     println(r.nextString())
+//     println(r.nextString())
+//     println(r.nextString())
+//     println(r.nextString())
+
+     TasksRow(r.nextString(), r.nextTimestampOption(), r.nextInt(), r.nextTimestamp(), r.nextString(), r.nextString())
+    }
+  )
 
   class Tasks(_tableTag: Tag) extends profile.api.Table[TasksRow](_tableTag, scTasksTable) {
     def * = (id, executionTimestamp, status, creationTimestamp, action, data) <> (TasksRow .tupled, TasksRow.unapply)
