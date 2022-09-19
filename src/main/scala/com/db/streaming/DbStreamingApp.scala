@@ -61,18 +61,13 @@ object DbStreamingApp extends App {
                   item.id === data.id
                 }
               )
-                .map(task => {
-                    println(s"Change status: ${data.id} ")
-                    (task.executionTimestamp, task.status)
-                  }
+                .map(task => (task.executionTimestamp, task.status)
                 )
                 .update((Some(new Timestamp(System.currentTimeMillis())), row._2 match {
                   case 1 => 20
                   case _  => 21
                 })))
-      case None =>
-        println("None")
-        Future(0)
+      case None => Future(0)
     }
   }
 
