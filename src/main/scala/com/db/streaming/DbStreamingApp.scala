@@ -1,8 +1,6 @@
 package com.db.streaming
 
-import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, RetryFlow, Sink, Source}
 import com.db.streaming.db.model.Tables
 import com.db.streaming.db.model.Tables.{Tasks, TasksRow}
