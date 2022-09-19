@@ -9,8 +9,8 @@ CREATE TABLE tasks (
     data text
 );
 
-insert into tasks (id, creation_timestamp, status, action, data) values (331, now(), 0, 'test_action_1', 'some test data');
-insert into tasks (id, creation_timestamp, status, action, data) values (222, now(), 0, 'test_action_2', 'some test data');
-insert into tasks (id, creation_timestamp, status, action, data) values (322, now(), 0, 'test_action_3', 'some test data');
-insert into tasks (id, creation_timestamp, status, action, data) values (4333, now(), 0, 'test_action_4', 'some test data');
-insert into tasks (id, creation_timestamp, status, action, data) values (4445, now(), 0, 'test_action_5', 'some test data');
+insert into tasks (id, creation_timestamp, status, action, data) values (34, now(), 0, 'test_action_1', 'some test data');
+insert into tasks (id, creation_timestamp, status, action, data) values (54, now(), 0, 'test_action_2', 'some test data');
+insert into tasks (id, creation_timestamp, status, action, data) values (65, now(), 0, 'test_action_3', 'some test data');
+insert into tasks (id, creation_timestamp, status, action, data) values (67, now(), 0, 'test_action_4', 'some test data');
+insert into tasks (id, creation_timestamp, status, action, data) values (78, now(), 0, 'test_action_5', 'some test data');

@@ -1,8 +1,7 @@
 package com.db.streaming
 
-import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.{Flow, RetryFlow, Sink, Source}
 import com.db.streaming.db.model.Tables
 import com.db.streaming.db.model.Tables.{Tasks, TasksRow}
 import com.db.streaming.db.profile.CustomPostgresProfile
@@ -27,13 +26,9 @@ object DbStreamingApp extends App {
   val db: CustomPostgresProfile.backend.Database = Database.forConfig("app.db")
   val tq = TableQuery[Tasks]
 
-  def executor(item: Future[TasksRow]): Future[(TasksRow, Int)] = item.map {
-    item =>
-      println(item.id)
-      (item, Random.between(0, 2))
-  }
+  def executor(item: TasksRow): Future[(TasksRow, Int)] = Future(item, Random.between(0, 2))
 
-  def producer(conn: Session): Future[TasksRow] = {
+  def producer(conn: Session): Future[Option[TasksRow]] = {
     val testQuery = """UPDATE tasks
                       |SET status = 10, execution_timestamp = now()
                       |WHERE id = (
@@ -52,23 +47,25 @@ object DbStreamingApp extends App {
       task <- sql"#$query".as[TasksRow].headOption.transactionally
     } yield task
 
-    conn.database.run(comp).flatMap {
-      case Some(value) =>
-        println(value)
-        Future(value)
-      case None => producer(conn)
-    }
+    conn.database.run(comp)
   }
 
   def statusChange(conn: Session, row:(TasksRow, Int)): Future[Int] = {
-    conn.database.run(
-      tq.filter(
-        item => {
-          item.id === row._1.id
-        }
-      )
-        .map(task => (task.executionTimestamp, task.status))
-        .update((Some(new Timestamp(System.currentTimeMillis())), 20)))
+   conn.database.run(
+        tq.filter(
+          item => {
+            item.id === row._1.id
+          }
+        )
+          .map(task => {
+              println(s"Change status: ${row._1.id} ")
+              (task.executionTimestamp, task.status)
+            }
+          )
+          .update((Some(new Timestamp(System.currentTimeMillis())), row._2 match {
+            case 1 => 20
+            case _  => 21
+          })))
   }
 
   val session = db.createSession()
@@ -77,9 +74,18 @@ object DbStreamingApp extends App {
 
   Try(session.conn) match {
     case Success(_) =>
-      val flow = Source.repeat(NotUsed).map(_ => producer(session)).mapAsync(10)(executor)
-        .mapAsync(10)(statusChange(session, _))
-        .runWith(Sink.ignore)
+      val flow = Source.repeat(())
+        .via(RetryFlow.withBackoff(
+          minBackoff = 0.seconds,
+          maxBackoff = 0.seconds,
+          randomFactor = 0,
+          maxRetries = 5,
+          Flow[Unit].mapAsync(10)(_ => producer(session)),
+        )(decideRetry = {
+          case (_, Some(row)) => Some(executor(row).map(statusChange(session, _)).flatten)
+          case _ =>
+            None
+        })).runWith(Sink.ignore)
 
       Await.result(flow, Duration.Inf)
     case Failure(e) =>
