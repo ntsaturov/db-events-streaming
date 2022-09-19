@@ -22,7 +22,6 @@ object DbStreamingApp extends App {
   implicit val system: ActorSystem = ActorSystem("reactive")
   implicit val ec: ExecutionContextExecutor = system.dispatcher
 
-  def uuid = java.util.UUID.randomUUID.toString
   val db: CustomPostgresProfile.backend.Database = Database.forConfig("app.db")
   val tq = TableQuery[Tasks]
 
